@@ -13,6 +13,7 @@ from src.var_models import (
     historical_var,
     monte_carlo_var,
     parametric_gaussian_var,
+    student_t_var,
 )
 
 
@@ -21,6 +22,7 @@ VaRFunction = Callable[[pd.Series, float], float]
 MODEL_FUNCTIONS: dict[str, VaRFunction] = {
     "Historical": historical_var,
     "Parametric Gaussian": parametric_gaussian_var,
+    "Student-t": student_t_var,
     "Monte Carlo": monte_carlo_var,
 }
 

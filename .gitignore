@@ -3,6 +3,5 @@ __pycache__/
 venv/
 .ipynb_checkpoints/
 outputs/*.csv
-outputs/*.png
 
 !outputs/.gitkeep

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
+from scipy.stats import norm, t
 
 
 SUPPORTED_CONFIDENCE_LEVELS = (0.95, 0.99)
@@ -41,6 +41,29 @@ def parametric_gaussian_es(returns: pd.Series, confidence_level: float) -> float
     mean = clean.mean()
     std = clean.std(ddof=1)
     return float(mean - std * norm.pdf(z_alpha) / alpha)
+
+
+def student_t_var(returns: pd.Series, confidence_level: float) -> float:
+    """Estimate Student-t VaR from empirical moments and excess kurtosis."""
+    _validate_confidence_level(confidence_level)
+    alpha = 1 - confidence_level
+    mean, scale, degrees_of_freedom = _student_t_parameters(returns)
+    return float(mean + scale * t.ppf(alpha, degrees_of_freedom))
+
+
+def student_t_es(returns: pd.Series, confidence_level: float) -> float:
+    """Estimate Student-t Expected Shortfall from calibrated t parameters."""
+    _validate_confidence_level(confidence_level)
+    alpha = 1 - confidence_level
+    mean, scale, degrees_of_freedom = _student_t_parameters(returns)
+    quantile = t.ppf(alpha, degrees_of_freedom)
+    tail_multiplier = (
+        (degrees_of_freedom + quantile**2)
+        / (degrees_of_freedom - 1)
+        * t.pdf(quantile, degrees_of_freedom)
+        / alpha
+    )
+    return float(mean - scale * tail_multiplier)
 
 
 def monte_carlo_var(
@@ -81,6 +104,10 @@ def calculate_var_es_by_model(
             "VaR": parametric_gaussian_var(returns, confidence_level),
             "ES": parametric_gaussian_es(returns, confidence_level),
         },
+        "Student-t": {
+            "VaR": student_t_var(returns, confidence_level),
+            "ES": student_t_es(returns, confidence_level),
+        },
         "Monte Carlo": {
             "VaR": monte_carlo_var(returns, confidence_level),
             "ES": monte_carlo_es(returns, confidence_level),
@@ -96,6 +123,21 @@ def _simulate_returns(
     clean = _clean_returns(returns)
     rng = np.random.default_rng(seed)
     return rng.normal(clean.mean(), clean.std(ddof=1), simulations)
+
+
+def _student_t_parameters(returns: pd.Series) -> tuple[float, float, float]:
+    clean = _clean_returns(returns)
+    mean = clean.mean()
+    std = clean.std(ddof=1)
+    excess_kurtosis = clean.kurt()
+
+    if not np.isfinite(excess_kurtosis) or excess_kurtosis <= 0:
+        degrees_of_freedom = 200.0
+    else:
+        degrees_of_freedom = min(max(6 / excess_kurtosis + 4, 4.01), 200.0)
+
+    scale = std * np.sqrt((degrees_of_freedom - 2) / degrees_of_freedom)
+    return float(mean), float(scale), float(degrees_of_freedom)
 
 
 def _clean_returns(returns: pd.Series) -> pd.Series:

@@ -59,6 +59,7 @@ def plot_rolling_var_99(
     colors = {
         "Historical": "#c0392b",
         "Parametric Gaussian": "#2c3e50",
+        "Student-t": "#7d3c98",
         "Monte Carlo": "#1f8a70",
     }
     for model_name, result in rolling_results.items():
